@@ -1,0 +1,29 @@
+<%- include("../includes/head.ejs") %>
+<%- include("../includes/navigation.ejs") %>
+<main>
+    <h1>Create a New Blog</h1>
+    <form action="/blogs" method="POST">
+        <div>
+            <label for="imageUrl">Image Url</label>
+            <input type="text" id="imageUrl" name="imageUrl">
+        </div>
+
+        <div>
+            <label for="blogTitle">Blog Title</label>
+            <input type="text" id="blogTitle" name="title">
+        </div>
+
+        <div>
+            <label for="blogDescription">Blog Description</label>
+            <input type="text" id="blogDescription" name="description">
+        </div>
+
+        <div>
+            <label for="blogBody">Blog Body</label>
+            <textarea name="blogBody" id="blogBody" cols="30" rows="10"></textarea>
+        </div>
+
+        <button type="submit">Publish Blog</button>
+    </form>
+</main>
+<%- include("../includes/end.ejs") %>
