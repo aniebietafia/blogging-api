@@ -3,21 +3,23 @@ const express = require("express");
 const router = express.Router();
 
 const blogsController = require("../controllers/blogs-controller");
-const userController = require("../controllers/user-controller");
 
-router.get("/blogs", blogsController.getIndexPage);
+// Route to get all blogs without signing up or logging in
+router.get("/", blogsController.getBlogs);
 
-router.get("/blogs/create-blog", blogsController.getCreateBlog);
+// Route to get all blogs posted by a signed up user
+router.get("/admin", blogsController.getAdminBlogs);
 
-router.post("/blogs", blogsController.postCreatedBlog);
+// Route to create new blog - must be signed up and logged in
+router.post("/admin", blogsController.postNewBlog);
 
-router.get("/blogs/:id", blogsController.getFullBlog);
+// Route to get a single blog - must be signed up and logged in
+router.get("/:id", blogsController.getSingleBlog);
 
-router.get("/blogs/edit-blog/:id", blogsController.getEditBlog);
+// Route to to update a blog - must be signed up and logged in
+router.patch("/:id", blogsController.updateBlog);
 
-router.post("/blogs/edit-blog/:id", blogsController.postEditedBlog);
-
-router.post("/blogs/delete-blog/:id", blogsController.postDeleteBlog);
-
+// Route to delete a blog - must be signed up and logged in
+router.delete("/:id", blogsController.deleteBlog);
 
 module.exports = router;

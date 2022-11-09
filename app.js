@@ -1,44 +1,48 @@
 // Importing node core modules
 const path = require("path");
 
-// Importing third-party modules
+// Importing third party modules
 const express = require("express");
-//const passport = require("passport");
-require("dotenv").config();
 const bodyParser = require("body-parser");
+require("dotenv").config();
+require("express-async-errors");
 
-//Signup and login authentication middleware
-//require("./authentication/auth");
-
-// Initializing express app
-const app = express();
-const PORT = process.env.PORT;
-
-// Importing local modules
-const blogsRoute = require("./routes/blogs-route");
-const usersRoute = require("./routes/users-route");
-const errorController = require("./controllers/error");
-
-//Connecting to MongoDB
+// Connection to MongoDB database
 const { MONGODB_CONNECTION } = require("./db/db");
 
-//Setting up the ejs templating engine
+// Importing router modules
+const authenticateUser = require("./middleware/authentication");
+const blogsRoute = require("./routes/blogs-route");
+const authRoute = require("./routes/auth-route");
+
+// Error Handler
+const notFoundMiddleware = require("./middleware/not-found");
+const errorHandlerMiddleware = require("./middleware/error-handler");
+
+// Initilizing express app
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Setting up the ejs templating engine
 app.set("view engine", "ejs");
 app.set("views", "views");
 
-//Middleware for parsing the body
+// Middlewares for parsing the body
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 
-//Connecting to database
+// Using the middlewares
+app.use(express.json());
+
+app.use("/admin", authRoute);
+app.use("/blogs", authenticateUser, blogsRoute);
+
+// Implementing error middleware
+app.use(notFoundMiddleware);
+app.use(errorHandlerMiddleware);
+
+// Using the MongoDB function
 MONGODB_CONNECTION();
 
-
-//Using the middlewares
-app.use(express.json());
-app.use(blogsRoute);
-app.use(usersRoute);
-app.use(errorController.errorPage);
-
-// Listening to server
+// Starting the server
 app.listen(PORT);

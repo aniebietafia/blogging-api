@@ -1,141 +1,90 @@
-const Blogs = require("../models/blogs-model");
-const {text} = require("body-parser");
-
-const ITEMS_PER_PAGE = 2;
+const Blog = require("../models/blog-model");
+const { StatusCodes } = require("http-status-codes");
+const { BadRequestError, NotFoundError } = require("../errors");
 
 //Algorithm to calculate for reading time
 const calculateReadingTime = (text) => {
-    let readTime;
-    try {
-        const wpm = 275;
-        const words = text.split(' ');
-        const textWordAmount = words.length;
-        readTime = Math.ceil(textWordAmount / wpm);
-    }catch (e) {
-        return null;
-    }
-    return readTime;
-}
-
-//Index page to render (fetch) all blogs from the database
-exports.getIndexPage = (req, res, next) => {
-    const page = +req.query.page || 1;
-    let totalItems;
-
-    Blogs.find()
-        .countDocuments()
-        .then(numBlogs => {
-            totalItems = numBlogs;
-            return Blogs.find()
-                .skip((page - 1) * ITEMS_PER_PAGE)
-                .limit(ITEMS_PER_PAGE)
-        }).then(blogs => {
-    res.render("blogs/index", {
-      blogs: blogs,
-      pageTitle: "All Blogs",
-      currentPage: page,
-      hasNextPage: ITEMS_PER_PAGE * page < totalItems,
-      hasPreviousPage: page > 1,
-      nextPage: page + 1,
-      previousPage: page - 1,
-        lastPage: Math.ceil(totalItems / ITEMS_PER_PAGE)
-    });
-  });
+  let readTime;
+  try {
+    const wpm = 275;
+    const words = text.split(" ");
+    const textWordAmount = words.length;
+    readTime = Math.ceil(textWordAmount / wpm);
+  } catch (e) {
+    return null;
+  }
+  return readTime;
 };
 
-exports.getCreateBlog = (req, res, next) => {
-  res.render("blogs/create-blog", {
-    pageTitle: "Create a Blog",
-  });
-}
-
-//Function to create a new blog
-exports.postCreatedBlog = (req, res, next) => {
-  const imageUrl = req.body.imageUrl;
-  const title = req.body.title;
-  const description = req.body.description;
-  const blogBody = req.body.blogBody;
-  const reading_time = calculateReadingTime(req.body.blogBody);
-  const blog = new Blogs({
-    imageUrl: imageUrl,
-    description: description,
-    title: title,
-    blogBody: blogBody,
-    reading_time: reading_time
-    //userId: req.user
-  });
-  blog.save().then(() => {
-    res.redirect(`/blogs/${blog._id}`);
-  })
-      .catch(error => {
-        console.log(error);
-      });
-}
-
-exports.getEditBlog = (req, res, next) => {
-    const { id } = req.params;
-    Blogs.findOne({
-        _id: id
-    })
-        .then(blog => {
-            res.render("blogs/edit-blog", {
-                pageTitle: "Edit Blog",
-                blog: blog,
-            });
-        })
-        .catch(error => {
-            console.log(error);
-        });
+// Get all blogs without signing up or logging in
+exports.getBlogs = async (req, res, next) => {
+  const blogs = await Blog.find();
+  res.status(StatusCodes.OK).json({ blogs });
 };
 
-exports.postEditedBlog = (req, res, next) => {
-    const { id } = req.params;
-    const updatedTitle = req.body.title;
-    const updatedDescription = req.body.description;
-    const updatedImageUrl = req.body.imageUrl;
-    const updatedBlogBody = req.body.blogBody;
-    const updatedReading_time = calculateReadingTime(req.body.blogBody);
+// Get all blogs when signed in with pagination
+exports.getAdminBlogs = async (req, res, next) => {
+  let page = req.query.page * 1 || 1;
+  let limit = req.query.limit * 1 || 20;
+  let skip = (page - 1) * limit;
+  const blogs = await Blog.find({ author: req.user.userId })
+    .skip(skip)
+    .limit(limit);
+  res.status(StatusCodes.OK).json({ blogs });
+};
 
-    Blogs.findById({
-        _id: id
-    }).then(blog => {
-        blog.title = updatedTitle;
-        blog.description = updatedDescription;
-        blog.blogBody = updatedBlogBody;
-        blog.imageUrl = updatedImageUrl;
-        blog.reading_time = updatedReading_time;
+// Get single Blog
+exports.getSingleBlog = async (req, res, next) => {
+  const {
+    user: { userId },
+    params: { id: blogId },
+  } = req;
 
-        return blog.save();
-    }).then(result => {
-        res.redirect("/blogs");
-    }).catch(error => {
-        console.log(error);
-    })
-}
+  const blog = await findOne({
+    _id: blogId,
+    author: userId,
+  });
 
-//Function to handle the Full blog based on id of the blog
-exports.getFullBlog = (req, res, next) => {
-  const blogId = req.params.id;
-  Blogs.findById(blogId).then(blog => {
-        res.render("blogs/showFullBlog", {
-          blog: blog,
-          pageTitle: blog.title
-        });
-      })
-      .catch(error => {
-        console.log(error);
-      })
-}
+  res.status(StatusCodes.OK).json({ blog });
+};
 
-exports.postDeleteBlog = (req, res, next) => {
-    const { id } = req.params;
-    Blogs.deleteOne({
-        _id: id
-    })
-        .then(() => {
-            res.redirect("/blogs");
-        })
-        .catch(error => {
-            console.log(error);
-        });
-}
+// Post Blog
+exports.postNewBlog = async (req, res) => {
+  req.body.author = req.user.userId;
+  req.body.reading_time = calculateReadingTime(req.body.blogBody);
+
+  const blog = await Blog.create(req.body);
+  res.status(StatusCodes.CREATED).json({ blog });
+};
+
+// Update Blog
+exports.updateBlog = async (req, res, next) => {
+  const {
+    //body: { title, category, description, blogBody, reading_time },
+    user: { userId },
+    params: { id: blogId },
+  } = req;
+
+  const blog = await Blog.findByIdAndUpdate(
+    { _id: blogId, author: userId },
+    req.body,
+    { new: true, runValidators: true }
+  );
+
+  res.status(StatusCodes.OK).json({ blog });
+};
+
+// Delete Blog
+exports.deleteBlog = async (req, res, next) => {
+  const {
+    user: { userId },
+    params: { id: blogId },
+  } = req;
+
+  const blog = await Blog.findByIdAndRemove({
+    _id: blogId,
+    author: userId,
+  });
+
+  res.status(StatusCodes.OK).json({ blog });
+};

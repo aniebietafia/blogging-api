@@ -1,1 +1,1 @@
-# Blogging App Api
+# Blogs Api using NodeJs
